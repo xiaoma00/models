@@ -67,6 +67,22 @@ class Resnet50KerasAccuracy(keras_benchmark.KerasBenchmark):
     FLAGS.dtype = 'fp32'
     self._run_and_report_benchmark()
 
+  def benchmark_aaa_8_gpu_warmup(self):
+    """Dummy test that runs over an epoch to warmup the machine."""
+    self._setup()
+
+    FLAGS.skip_eval = True
+    FLAGS.report_accuracy_metrics = False
+    FLAGS.dtype = 'fp16'
+    FLAGS.enable_xla = True
+    FLAGS.log_steps = 100
+    FLAGS.num_gpus = 8
+    FLAGS.enable_eager = True
+    FLAGS.model_dir = self._get_model_dir('benchmark_aaa_8_gpu_warmup')
+    FLAGS.batch_size = 256
+    FLAGS.train_steps = 700
+    self._run_and_report_benchmark()
+
   def benchmark_8_gpu(self):
     """Test Keras model with eager, dist_strat and 8 GPUs."""
     self._setup()

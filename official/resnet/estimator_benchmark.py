@@ -456,12 +456,11 @@ class Resnet56EstimatorAccuracy(EstimatorBenchmark):
     flags.FLAGS.data_dir = self.data_dir
     flags.FLAGS.batch_size = 128
     flags.FLAGS.train_epochs = 182
-    flags.FLAGS.model_dir = self._get_model_dir('benchmark_graph_1_gpu')
+    flags.FLAGS.model_dir = self._get_model_dir('keras_cifar_graph_1_gpu')
     flags.FLAGS.resnet_size = 56
     flags.FLAGS.dtype = 'fp32'
     flags.FLAGS.hooks = ['ExamplesPerSecondHook']
-    flags.FLAGS.enable_xla = True
-    self._run_and_report_benchmark(using_keras=True)
+    self._run_and_report_benchmark()
 
   def benchmark_graph_fp16_1_gpu(self):
     """Test layers FP16 model with Estimator and distribution strategies."""

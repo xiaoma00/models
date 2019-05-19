@@ -387,10 +387,10 @@ def resnet_model_fn(features, labels, mode, model_class,
 
   # model = model_class(resnet_size, data_format, resnet_version=resnet_version,
   #                     dtype=dtype)
-  model = resnet_cifar_model.resnet56(10)
+  model = resnet_cifar_model.resnet56(classes=10)
 
-  # logits = model(features, mode == tf.estimator.ModeKeys.TRAIN)
-  logits = model(features)
+  logits = model(features, mode == tf.estimator.ModeKeys.TRAIN)
+  # logits = model(features)
 
   # This acts as a no-op if the logits are already in fp32 (provided logits are
   # not a SparseTensor). If dtype is is low precision, logits must be cast to
@@ -500,8 +500,8 @@ def resnet_model_fn(features, labels, mode, model_class,
         grad_vars = _dense_grad_filter(grad_vars)
       minimize_op = optimizer.apply_gradients(grad_vars, global_step)
 
-    # update_ops = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.UPDATE_OPS)
-    update_ops = model.get_updates_for(features)
+    update_ops = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.UPDATE_OPS)
+    # update_ops = model.get_updates_for(features)
     train_op = tf.group(minimize_op, update_ops)
   else:
     train_op = None

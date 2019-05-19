@@ -389,7 +389,8 @@ def resnet_model_fn(features, labels, mode, model_class,
   #                     dtype=dtype)
   model = resnet_cifar_model.resnet56(10)
 
-  logits = model(features, mode == tf.estimator.ModeKeys.TRAIN)
+  # logits = model(features, mode == tf.estimator.ModeKeys.TRAIN)
+  logits = model(features)
 
   # This acts as a no-op if the logits are already in fp32 (provided logits are
   # not a SparseTensor). If dtype is is low precision, logits must be cast to

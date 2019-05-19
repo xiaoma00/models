@@ -26,9 +26,6 @@ import tensorflow as tf  # pylint: disable=g-bad-import-order
 
 from official.resnet import cifar10_main as cifar_main
 from official.resnet import imagenet_main
-from official.resnet.keras import keras_cifar_main
-from official.resnet.keras import keras_common
-from official.resnet.keras import keras_imagenet_main
 from official.utils.logs import hooks
 
 IMAGENET_DATA_DIR_NAME = 'imagenet'
@@ -115,53 +112,6 @@ class EstimatorBenchmark(tf.test.Benchmark):
         metrics=metrics)
 
 
-  def _report_benchmark_keras(self,
-                              stats,
-                              wall_time_sec,
-                              top_1_max=None,
-                              top_1_min=None,
-                              log_steps=None,
-                              total_batch_size=None,
-                              warmup=1):
-    """Report benchmark results by writing to local protobuf file.
-    Args:
-      stats: dict returned from keras models with known entries.
-      wall_time_sec: the during of the benchmark execution in seconds
-      top_1_max: highest passing level for top_1 accuracy.
-      top_1_min: lowest passing level for top_1 accuracy.
-      log_steps: How often the log was created for stats['step_timestamp_log'].
-      total_batch_size: Global batch-size.
-      warmup: number of entries in stats['step_timestamp_log'] to ignore.
-    """
-
-    metrics = []
-    if 'accuracy_top_1' in stats:
-      metrics.append({'name': 'accuracy_top_1',
-                      'value': stats['accuracy_top_1'],
-                      'min_value': top_1_min,
-                      'max_value': top_1_max})
-      metrics.append({'name': 'top_1_train_accuracy',
-                      'value': stats['training_accuracy_top_1']})
-
-    if (warmup and 'step_timestamp_log' in stats and
-        len(stats['step_timestamp_log']) > warmup):
-      # first entry in the time_log is start of step 1. The rest of the
-      # entries are the end of each step recorded
-      time_log = stats['step_timestamp_log']
-      elapsed = time_log[-1].timestamp - time_log[warmup].timestamp
-      num_examples = (
-          total_batch_size * log_steps * (len(time_log) - warmup - 1))
-      examples_per_sec = num_examples / elapsed
-      metrics.append({'name': 'exp_per_second',
-                      'value': examples_per_sec})
-
-    if 'avg_exp_per_second' in stats:
-      metrics.append({'name': 'avg_exp_per_second',
-                      'value': stats['avg_exp_per_second']})
-
-    self.report_benchmark(iters=-1, wall_time=wall_time_sec, metrics=metrics)
-
-
 class Resnet50EstimatorAccuracy(EstimatorBenchmark):
   """Benchmark accuracy tests for ResNet50 w/ Estimator."""
 
@@ -176,7 +126,6 @@ class Resnet50EstimatorAccuracy(EstimatorBenchmark):
                 named arguments before updating the constructor.
     """
     flag_methods = [
-        keras_common.define_keras_flags,
         lambda: imagenet_main.define_imagenet_flags(dynamic_loss_scale=True,
                                                     fp16_implementation=True)
     ]
@@ -197,20 +146,6 @@ class Resnet50EstimatorAccuracy(EstimatorBenchmark):
     FLAGS.dtype = 'fp32'
     FLAGS.hooks = ['ExamplesPerSecondHook']
     self._run_and_report_benchmark()
-
-  def benchmark_graph_8_gpu_keras(self):
-    """Test 8 GPUs graph mode."""
-    self._setup()
-    FLAGS.num_gpus = 8
-    FLAGS.data_dir = self.data_dir
-    FLAGS.batch_size = 128 * 8
-    FLAGS.train_epochs = 90
-    FLAGS.epochs_between_evals = 10
-    FLAGS.model_dir = self._get_model_dir('benchmark_graph_8_gpu')
-    FLAGS.dtype = 'fp32'
-    FLAGS.hooks = ['ExamplesPerSecondHook']
-    FLAGS.enable_xla = True
-    self._run_and_report_benchmark(using_keras=True)
 
   def benchmark_graph_fp16_8_gpu(self):
     """Test FP16 8 GPUs graph mode."""
@@ -240,25 +175,14 @@ class Resnet50EstimatorAccuracy(EstimatorBenchmark):
     FLAGS.hooks = ['ExamplesPerSecondHook']
     self._run_and_report_benchmark()
 
-  def _run_and_report_benchmark(self, using_keras=False):
+  def _run_and_report_benchmark(self):
     start_time_sec = time.time()
-    if using_keras:
-      stats = keras_imagenet_main.run(flags.FLAGS)
-    else:
-      stats = imagenet_main.run_imagenet(flags.FLAGS)
+    stats = imagenet_main.run_imagenet(flags.FLAGS)
     wall_time_sec = time.time() - start_time_sec
-    if using_keras:
-      self._report_benchmark_keras(stats,
-                                   wall_time_sec,
-                                   top_1_min=0.76,
-                                   top_1_max=0.77,
-                                   total_batch_size=FLAGS.batch_size,
-                                   log_steps=100)
-    else:
-      self._report_benchmark(stats,
-                             wall_time_sec,
-                             top_1_min=0.762,
-                             top_1_max=0.766)
+    self._report_benchmark(stats,
+                           wall_time_sec,
+                           top_1_min=0.762,
+                           top_1_max=0.766)
 
 
 class Resnet50EstimatorBenchmark(EstimatorBenchmark):
@@ -430,7 +354,7 @@ class Resnet56EstimatorAccuracy(EstimatorBenchmark):
                 constructor forward compatible in case PerfZero provides more
                 named arguments before updating the constructor.
     """
-    flag_methods = [keras_common.define_keras_flags, cifar_main.define_cifar_flags]
+    flag_methods = [cifar_main.define_cifar_flags]
 
     self.data_dir = os.path.join(root_data_dir, CIFAR_DATA_DIR_NAME)
     super(Resnet56EstimatorAccuracy, self).__init__(
@@ -444,19 +368,6 @@ class Resnet56EstimatorAccuracy(EstimatorBenchmark):
     flags.FLAGS.batch_size = 128
     flags.FLAGS.train_epochs = 182
     flags.FLAGS.model_dir = self._get_model_dir('benchmark_graph_1_gpu')
-    flags.FLAGS.resnet_size = 56
-    flags.FLAGS.dtype = 'fp32'
-    flags.FLAGS.hooks = ['ExamplesPerSecondHook']
-    self._run_and_report_benchmark()
-
-  def benchmark_graph_1_gpu_keras(self):
-    """Test Keras layers model with Estimator and distribution strategies."""
-    self._setup()
-    flags.FLAGS.num_gpus = 1
-    flags.FLAGS.data_dir = self.data_dir
-    flags.FLAGS.batch_size = 128
-    flags.FLAGS.train_epochs = 182
-    flags.FLAGS.model_dir = self._get_model_dir('keras_cifar_graph_1_gpu')
     flags.FLAGS.resnet_size = 56
     flags.FLAGS.dtype = 'fp32'
     flags.FLAGS.hooks = ['ExamplesPerSecondHook']
@@ -514,23 +425,13 @@ class Resnet56EstimatorAccuracy(EstimatorBenchmark):
     flags.FLAGS.hooks = ['ExamplesPerSecondHook']
     self._run_and_report_benchmark()
 
-  def _run_and_report_benchmark(self, using_keras=False):
+  def _run_and_report_benchmark(self):
     """Executes benchmark and reports result."""
     start_time_sec = time.time()
-    if using_keras:
-      stats = keras_cifar_main.run(flags.FLAGS)
-    else:
-      stats = cifar_main.run_cifar(flags.FLAGS)
+    stats = cifar_main.run_cifar(flags.FLAGS)
     wall_time_sec = time.time() - start_time_sec
-    if using_keras:
-      self._report_benchmark_keras(stats,
-                                   wall_time_sec,
-                                   top_1_min=0.92,
-                                   top_1_max=0.938,
-                                   total_batch_size=FLAGS.batch_size,
-                                   log_steps=100)
-    else:
-      self._report_benchmark(stats,
-                             wall_time_sec,
-                             top_1_min=0.926,
-                             top_1_max=0.938)
+
+    self._report_benchmark(stats,
+                           wall_time_sec,
+                           top_1_min=0.926,
+                           top_1_max=0.938)

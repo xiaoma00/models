@@ -41,6 +41,7 @@ from official.utils.logs import logger
 from official.resnet import imagenet_preprocessing
 from official.utils.misc import distribution_utils
 from official.utils.misc import model_helpers
+from official.resnet.keras import resnet_cifar_model
 
 
 ################################################################################
@@ -384,8 +385,9 @@ def resnet_model_fn(features, labels, mode, model_class,
   # Checks that features/images have same data type being used for calculations.
   assert features.dtype == dtype
 
-  model = model_class(resnet_size, data_format, resnet_version=resnet_version,
-                      dtype=dtype)
+  # model = model_class(resnet_size, data_format, resnet_version=resnet_version,
+  #                     dtype=dtype)
+  model = resnet_cifar_model.resnet56(10)
 
   logits = model(features, mode == tf.estimator.ModeKeys.TRAIN)
 

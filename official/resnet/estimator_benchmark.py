@@ -131,7 +131,7 @@ class EstimatorBenchmark(tf.test.Benchmark):
       warmup: number of entries in stats['step_timestamp_log'] to ignore.
     """
 
-     metrics = []
+    mmetrics = []
     if 'accuracy_top_1' in stats:
       metrics.append({'name': 'accuracy_top_1',
                       'value': stats['accuracy_top_1'],
@@ -140,7 +140,7 @@ class EstimatorBenchmark(tf.test.Benchmark):
       metrics.append({'name': 'top_1_train_accuracy',
                       'value': stats['training_accuracy_top_1']})
 
-     if (warmup and 'step_timestamp_log' in stats and
+    if (warmup and 'step_timestamp_log' in stats and
         len(stats['step_timestamp_log']) > warmup):
       # first entry in the time_log is start of step 1. The rest of the
       # entries are the end of each step recorded
@@ -152,11 +152,11 @@ class EstimatorBenchmark(tf.test.Benchmark):
       metrics.append({'name': 'exp_per_second',
                       'value': examples_per_sec})
 
-     if 'avg_exp_per_second' in stats:
+    if 'avg_exp_per_second' in stats:
       metrics.append({'name': 'avg_exp_per_second',
                       'value': stats['avg_exp_per_second']})
 
-     self.report_benchmark(iters=-1, wall_time=wall_time_sec, metrics=metrics)
+    self.report_benchmark(iters=-1, wall_time=wall_time_sec, metrics=metrics)
 
 
 class Resnet50EstimatorAccuracy(EstimatorBenchmark):

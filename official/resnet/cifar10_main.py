@@ -228,7 +228,7 @@ def cifar10_model_fn(features, labels, mode, params):
   def loss_filter_fn(_):
     return True
 
-  return resnet_run_loop.resnet_model_fn(
+  return resnet_run_loop.mini_resnet_model_fn(
       features=features,
       labels=labels,
       mode=mode,

@@ -335,6 +335,62 @@ def learning_rate_with_decay(
   return learning_rate_fn
 
 
+def mini_resnet_model_fn(features, labels, mode, model_class,
+                    resnet_size, weight_decay, learning_rate_fn, momentum,
+                    data_format, resnet_version, loss_scale,
+                    loss_filter_fn=None, dtype=resnet_model.DEFAULT_DTYPE,
+                    fine_tune=False, label_smoothing=0.0):
+  tf.compat.v1.summary.image('images', features, max_outputs=6)
+  model = resnet_cifar_model.resnet56(classes=10)
+  logits = model(features, mode == tf.estimator.ModeKeys.TRAIN)
+  logits = tf.cast(logits, tf.float32)
+  predictions = {
+      'classes': tf.argmax(input=logits, axis=1),
+      'probabilities': tf.nn.softmax(logits, name='softmax_tensor')
+  }
+  
+  l2_loss = weight_decay * tf.add_n(
+      # loss is computed using fp32 for numerical stability.
+      [
+          tf.nn.l2_loss(tf.cast(v, tf.float32))
+          for v in tf.compat.v1.trainable_variables()
+          if loss_filter_fn(v.name)
+      ])
+  cross_entropy = tf.compat.v1.losses.sparse_softmax_cross_entropy(
+      logits=logits, labels=labels)
+  tf.identity(cross_entropy, name='cross_entropy')
+  loss = cross_entropy + l2_loss
+  
+  if mode == tf.estimator.ModeKeys.TRAIN:
+    global_step = tf.compat.v1.train.get_or_create_global_step()
+    learning_rate = learning_rate_fn(global_step)
+    tf.identity(learning_rate, name='learning_rate')
+    optimizer = tf.compat.v1.train.MomentumOptimizer(
+        learning_rate=learning_rate,
+        momentum=momentum
+    )
+    grad_vars = optimizer.compute_gradients(loss)
+    minimize_op = optimizer.apply_gradients(grad_vars, global_step)
+    update_ops = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.UPDATE_OPS)
+    train_op = tf.group(minimize_op, update_ops)
+  else:
+    train_op = None
+
+  accuracy = tf.compat.v1.metrics.accuracy(labels, predictions['classes'])
+  accuracy_top_5 = tf.compat.v1.metrics.mean(
+      tf.nn.in_top_k(predictions=logits, targets=labels, k=5, name='top_5_op'))
+  metrics = {'accuracy': accuracy,
+             'accuracy_top_5': accuracy_top_5}
+  tf.identity(accuracy[1], name='train_accuracy')
+  tf.identity(accuracy_top_5[1], name='train_accuracy_top_5')
+  return tf.estimator.EstimatorSpec(
+      mode=mode,
+      predictions=predictions,
+      loss=loss,
+      train_op=train_op,
+      eval_metric_ops=metrics)
+
+
 def resnet_model_fn(features, labels, mode, model_class,
                     resnet_size, weight_decay, learning_rate_fn, momentum,
                     data_format, resnet_version, loss_scale,
@@ -806,3 +862,4 @@ def define_resnet_flags(resnet_size_choices=None, dynamic_loss_scale=False,
     flags.DEFINE_string(**choice_kwargs)
   else:
     flags.DEFINE_enum(enum_values=resnet_size_choices, **choice_kwargs)
+

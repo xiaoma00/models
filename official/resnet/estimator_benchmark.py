@@ -115,7 +115,7 @@ class EstimatorBenchmark(tf.test.Benchmark):
         extras={'flags': flags_str})
 
 
-    def _report_benchmark_keras(self,
+  def _report_benchmark_keras(self,
                               stats,
                               wall_time_sec,
                               top_1_max=None,
